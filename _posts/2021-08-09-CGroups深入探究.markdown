@@ -1,0 +1,9 @@
+---
+layout: post
+title:  "Control Group深入探究"
+date:   2021-08-07 12:00:00 +0800
+categories: Java 多线程
+---
+
+[Control Group V1](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/index.html)
+[Control Group V2](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html)
