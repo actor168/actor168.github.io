@@ -102,11 +102,10 @@ public class Main {
 
 - `Java`中关于`Thread`的相关方法
 
-* `Thread`的`sleep()`, `yield()`
+1.  `Thread`的`sleep()`, `yield()`  
 线程休眠，但并不释放锁。
 
-* `Object`的`wait()`, `notify()`, `notifyAll()`
-
+2. `Object`的`wait()`, `notify()`, `notifyAll()`  
 线程被加入等待集合后，释放对象的锁。这是与sleep显著的不同
 每个`Java`对象包含一个等待集合`wait set`，wait的本质还是对象的锁操作和将线程加入对象的等待集合的操作，调用wait，就会将线程放置于等待集合，调用当前object多少次wait()，就会在对象上加多少次由线程施加的lock行为的unlock操作，一旦被`notify`或`interrupt`后，又会重新加上lock。
 
@@ -181,11 +180,8 @@ public class Volatile {
 }
 ```
 
-3. `synchronized`关键字
-
-`Java`内置关键字，通过`monitorenter`和`monitorexit`实现该能力，其实是对对象加锁。
-具有原子性、可见性、可重入性、重量级锁等特点。
-
+3. `synchronized`关键字  
+`Java`内置关键字，通过`monitorenter`和`monitorexit`实现该能力，其实是对对象加锁。具有原子性、可见性、可重入性、重量级锁等特点。  
 可以放置的地方如：
 - 代码块
 
@@ -213,35 +209,25 @@ static synchronized method {
 
 `synchronized`是可重入锁，可重入锁是指以线程为单位，当一个线程在获取对象锁后，这个线程可以再次获取该对象的锁，而其他线程不可以。
 
-- 可重入锁原理
+- 可重入锁原理  
 通过记录对象上锁的线程及数量来控制可重入性。
 + 调用`synchronized`代码时，检查该对象是否已经被锁，如果被锁，判断是否被当前线程锁定，如是，则计数加1；否则，加入等待队列。
-+ 退出`synchronized`，将计数减1，直到为0，则释放锁。
-
++ 退出`synchronized`，将计数减1，直到为0，则释放锁。  
 对象头，2个字的空间，包括：markword(synchronization+gc+hashcode)+object-ptr
 
-- 偏向锁、轻量级锁、重量级锁概念
-偏向锁：介于无锁和轻量级锁之间的一种状态，由markword记录当前所占用对象的thread id
-
-（1）初始时对象处于biasable状态，并且ThreadID为0即biasable & unbiased状态（这里不讨论epoch和age）
-
-（2）当一个线程试图锁住一个处于biasable & unbiased状态的对象时，通过一个CAS将自己的ThreadID放置到Mark Word中相应的位置，如果CAS操作成功进入第（3）步否则进入（4）步
-
-（3）当进入到这一步时代表当前没有锁竞争，Object继续保持biasable状态，但是这时ThreadID字段被设置成了偏向锁所有者的ID，然后进入到第（6）步
-
-（4）当前线程执行CAS获取偏向锁失败（这一步是偏向锁的关键），表示在该锁对象上存在竞争并且这个时候另外一个线程获得偏向锁所有权。当到达全局安全点（safepoint）时获得偏向锁的线程被挂起，并从偏向锁所有者的私有Monitor Record列表中获取一个空闲的记录，并将Object设置为LightWeight Lock状态并且Mark Word中的LockRecord指向刚才持有偏向锁线程的Monitor record，最后被阻塞在安全点的线程被释放，进入到轻量级锁的执行路径中，同时被撤销偏向锁的线程继续往下执行同步代码。
-
-（5）当一个线程试图锁住一个处于biasable & biased并且ThreadID不等于自己的ID时，这时由于存在锁竞争必须进入到第（4）步来撤销偏向锁。
-（6）运行同步代码块
-
-轻量级锁
-
-偏向锁->竞争->轻量级锁->OS Mutex->重量级锁
-
-轻量级锁会将被锁的对象的markword复制写入栈，形成lock record，并通过CAS将markword指向lock record。如果指向成功，则获取了对象锁。如果失败，则会膨胀，对象的markword会被os mutex和变量所CAS设置。解锁时过程一致，先去试图CAS lock record，如果失败，则CAS os mutex。
-
-重量级锁
-
+- 偏向锁、轻量级锁、重量级锁概念  
+**偏向锁**  
+介于无锁和轻量级锁之间的一种状态，由markword记录当前所占用对象的thread id  
+（1）初始时对象处于biasable状态，并且ThreadID为0即biasable & unbiased状态（这里不讨论epoch和age）  
+（2）当一个线程试图锁住一个处于biasable & unbiased状态的对象时，通过一个CAS将自己的ThreadID放置到Mark Word中相应的位置，如果CAS操作成功进入第（3）步否则进入（4）步  
+（3）当进入到这一步时代表当前没有锁竞争，Object继续保持biasable状态，但是这时ThreadID字段被设置成了偏向锁所有者的ID，然后进入到第（6）步  
+（4）当前线程执行CAS获取偏向锁失败（这一步是偏向锁的关键），表示在该锁对象上存在竞争并且这个时候另外一个线程获得偏向锁所有权。当到达全局安全点（safepoint）时获得偏向锁的线程被挂起，并从偏向锁所有者的私有Monitor Record列表中获取一个空闲的记录，并将Object设置为LightWeight Lock状态并且Mark Word中的LockRecord指向刚才持有偏向锁线程的Monitor record，最后被阻塞在安全点的线程被释放，进入到轻量级锁的执行路径中，同时被撤销偏向锁的线程继续往下执行同步代码。  
+（5）当一个线程试图锁住一个处于biasable & biased并且ThreadID不等于自己的ID时，这时由于存在锁竞争必须进入到第（4）步来撤销偏向锁。  
+（6）运行同步代码块  
+**轻量级锁**  
+偏向锁->竞争->轻量级锁->OS Mutex->重量级锁  
+轻量级锁会将被锁的对象的markword复制写入栈，形成lock record，并通过CAS将markword指向lock record。如果指向成功，则获取了对象锁。如果失败，则会膨胀，对象的markword会被os mutex和变量所CAS设置。解锁时过程一致，先去试图CAS lock record，如果失败，则CAS os mutex。  
+**重量级锁**    
 os mutex互斥锁
 
 4. 锁
@@ -262,8 +248,8 @@ os mutex互斥锁
 9. 并发容器`ConcurrentHashMap`
 
 
-[Java多线程](https://www.caveofprogramming.com/library/index.html#java-multithreading)
-[Java语言规范](https://docs.oracle.com/javase/specs/jls/se16/html/jls-17.html)
-[Java内存模型](https://zhuanlan.zhihu.com/p/29881777)
-[Java轻量级锁与偏向锁](https://www.oracle.com/technetwork/java/biasedlocking-oopsla2006-wp-149958.pdf)
-[Linux Mutex](https://www.kernel.org/doc/html/latest/locking/mutex-design.html)
+[Java多线程](https://www.caveofprogramming.com/library/index.html#java-multithreading)  
+[Java语言规范](https://docs.oracle.com/javase/specs/jls/se16/html/jls-17.html)  
+[Java内存模型](https://zhuanlan.zhihu.com/p/29881777)  
+[Java轻量级锁与偏向锁](https://www.oracle.com/technetwork/java/biasedlocking-oopsla2006-wp-149958.pdf)  
+[Linux Mutex](https://www.kernel.org/doc/html/latest/locking/mutex-design.html)  
