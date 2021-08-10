@@ -232,7 +232,94 @@ os mutex互斥锁
 
 4. 锁
 
-`Lock`, `ReentrantLock`, `Condition`, `ReentrantReadWriteLock`
+* `Lock`  
+
+`Lock`提供了对共享资源的独占访问：一次只有一个线程可以获得该锁，而对该共享资源的所有访问都需要首先获取该锁，JUC包中的`Lock`提供比`synchronized`更为灵活的使用方式，例如，一些遍历并发访问的数据结构的算法需要使用“移交”或“链锁”：获取节点A的锁，然后是节点B，然后释放A并获取C，然后释放B，然后获取D等等。锁接口的实现通过允许在不同的范围内获取和释放一个锁，并允许以任何顺序对多个锁进行获取和释放，从而允许使用这些技术。随着这种灵活性的增加，又增加了额外的责任。 
+```java
+ Lock l = ...;
+ l.lock();
+ try {
+   // access the resource protected by this lock
+ } finally {
+   l.unlock();
+ }
+```
+
+```java
+interface Lock {
+    void lock();
+    void lockInterruptibly();
+    Condition newCondition();
+    boolean tryLock();
+    boolean tryLock(long time, TimeUnit unit);
+    void unlock();
+} 
+```
+
+* `Condition`
+
+* `ReentrantLock`  
+
+基于`AQS`+`CAS`实现锁机制
+
+`AQS`(AbstractQueuedSynchronizer)
+
+```java
+public class JUCLocksTest {
+    /**
+     * main
+     * @param args
+     */
+    public static void main(String[] args) throws InterruptedException {
+        A share = new A(0);
+        for (int i = 0; i < 100; i++) {
+            Thread t = new MyThread("Thread" + i, share);
+            t.start();
+        }
+
+        Thread.sleep(10 * 1000);
+    }
+}
+
+class MyThread extends Thread {
+
+    private String name;
+    private A share;
+
+    MyThread(String name, A share) {
+        this.name = name;
+        this.share = share;
+    }
+
+    @Override
+    public void run() {
+        int sh = share.add();
+        System.out.println(name + ":" + sh);
+    }
+}
+
+class A {
+    private int share;
+    private ReentrantLock l = new ReentrantLock(true);
+
+
+    A(int i) {
+        this.share = i;
+    }
+
+    public int add() {
+        l.lock();
+        try {
+            share++;
+            return share;
+        }finally {
+            l.unlock();
+        }
+    }
+}
+```
+
+* `ReentrantReadWriteLock`
 
 
 
