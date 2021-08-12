@@ -257,6 +257,9 @@ interface Lock {
 ```
 
 * `Condition`
+`Lock`完成了对`JVM`层面的`synchronized`关键字的替代，`Condition`完成了对`Object`的监视器方法的替代。
+
+
 
 * `ReentrantLock`  
 
@@ -326,6 +329,8 @@ class A {
 
 5. `Future`, `Callable`, `FutureTask`
 
+
+
 6. 线程池
 
 7. `CountdownLatch`, `CyclicBarrier`, `Semaphor`
@@ -333,6 +338,7 @@ class A {
 8. 生产者和消费者模型 
 
 9. 并发容器`ConcurrentHashMap`
+
 
 
 [Java多线程](https://www.caveofprogramming.com/library/index.html#java-multithreading)  
