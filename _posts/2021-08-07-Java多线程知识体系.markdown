@@ -266,6 +266,26 @@ interface Lock {
 基于`AQS`+`CAS`实现锁机制
 
 `AQS`(AbstractQueuedSynchronizer)
+```
+     +------+  prev +-----+       +-----+
+head |      | <---- |     | <---- |     |  tail
+     +------+       +-----+       +-----+
+```
+基于队列模型，将新的线程加入到队列的尾部。
+
+Node的数据结构：
+```java
+static class Node {
+    volatile int waitStatus;
+    volatile Node pre;
+    volatile Node next;
+    volatile Thread thread;
+    Node nextWaiter;
+    final boolean isShared();
+    final Node predecessor();
+    final boolean compareAndSetNext();
+}
+```
 
 ```java
 public class JUCLocksTest {
@@ -324,8 +344,25 @@ class A {
 
 * `ReentrantReadWriteLock`
 
+- `ReadWriteLock`
+适用于读多写少的情况，其包括读锁和写锁，成功获取读锁的线程会看到所有写锁的更新。
+当然读写锁是否能够提高性能，取决于实际对读数据和写数据的频率。
 
+```java
+public Lock readLock();
+public Lock writeLock();
+```
 
+- `ReentrantReadWriteLock`
+
++ 获取锁顺序
++ 可重入性
++ 锁降级  
+允许从持有写锁的情况下，再获取读锁，然后再释放写锁，将原持有的写锁，降级为读锁。
++ 锁中断
++ Condition支持
+
+开放出的API中，主要包括`WatingQueue`, `Queue`
 
 5. `Future`, `Callable`, `FutureTask`
 
