@@ -355,14 +355,87 @@ public Lock writeLock();
 
 - `ReentrantReadWriteLock`
 
-+ 获取锁顺序
-+ 可重入性
-+ 锁降级  
-允许从持有写锁的情况下，再获取读锁，然后再释放写锁，将原持有的写锁，降级为读锁。
-+ 锁中断
-+ Condition支持
+1. 获取锁顺序  
+支持公平锁和非公平锁。
 
-开放出的API中，主要包括`WatingQueue`, `Queue`
+排他锁和共享锁的记录通过`count`的低16位和高16位分别记录，因此最大支持65535次的重入。
+获取排他锁的过程如下：
+```java
+protected final boolean tryAcquire(int acquires) {
+    /*
+    * Walkthrough:
+    * 1. If read count nonzero or write count nonzero
+    *    and owner is a different thread, fail.
+    * 2. If count would saturate, fail. (This can only
+    *    happen if count is already nonzero.)
+    * 3. Otherwise, this thread is eligible for lock if
+    *    it is either a reentrant acquire or
+    *    queue policy allows it. If so, update state
+    *    and set owner.
+    */
+    Thread current = Thread.currentThread();
+    int c = getState(); // 获取当前锁状态，如果为0，表示未持有；其他则表示持有锁。
+    int w = exclusiveCount(c); // 获取持有count的排他锁数量
+    if (c != 0) {
+        // (Note: if c != 0 and w == 0 then shared count != 0)
+        if (w == 0 || current != getExclusiveOwnerThread())
+            return false;
+        if (w + exclusiveCount(acquires) > MAX_COUNT)
+            throw new Error("Maximum lock count exceeded");
+        // Reentrant acquire
+        setState(c + acquires);
+        return true;
+    }
+    if (writerShouldBlock() ||
+        !compareAndSetState(c, c + acquires))
+        return false;
+    setExclusiveOwnerThread(current);
+    return true;
+}
+```
+2. 可重入性  
+允许读者和写者以重入锁的样式重新获取读或写锁。在发布写线程持有的所有写锁之前，不允许使用非重入式读者。此外，可以获取读取锁，但不是反之亦然。在其他应用程序中，当在调用或回调在读取锁下执行读取的方法时保持写锁时，重入性可能很有用。如果一个读者试图获得写锁，它将永远不会成功。
+3. 锁降级  
+允许从持有写锁的情况下，再获取读锁，然后再释放写锁，将原持有的写锁，降级为读锁。
+4. 锁中断
+5. Condition支持
+
+* 开放出的API中，主要包括`WatingQueue`, `Queue`，均属于`AQS`的一部分  
+
+
+* `LockSupport`作用及其原理
+提供了基本的阻塞原语，  
+
+`await()`, `signal()`
+```java
+public final void await() throws InterruptedException {
+    if (Thread.interrupted())
+        throw new InterruptedException();
+    Node node = addConditionWaiter();
+    int savedState = fullyRelease(node);
+    int interruptMode = 0;
+    while (!isOnSyncQueue(node)) {
+        LockSupport.park(this);
+        if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+            break;
+    }
+    if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
+        interruptMode = REINTERRUPT;
+    if (node.nextWaiter != null) // clean up if cancelled
+        unlinkCancelledWaiters();
+    if (interruptMode != 0)
+        reportInterruptAfterWait(interruptMode);
+}
+```
+步骤如下：  
+1. 如果当前线程已经被中断，则抛出`InterruptedException`;
+2. 通过`getState()`获取当前锁状态并保存;
+3. 调用`release()`;
+4. 阻塞进程直到`signalled`或者`intterrupted`;
+5. 再次通过当前状态调用获取锁，如果获取到，则再次中断;
+6. 如果在阻塞中被中断，则抛出`InterruptedException`;
+
+疑问：为什么会再次获取？这里是为了探测是否可以中断，针对于在阻塞中没有正常中断的情况。
 
 5. `Future`, `Callable`, `FutureTask`
 
@@ -377,6 +450,7 @@ public Lock writeLock();
 9. 并发容器`ConcurrentHashMap`
 
 
+参考文献 
 
 [Java多线程](https://www.caveofprogramming.com/library/index.html#java-multithreading)  
 [Java语言规范](https://docs.oracle.com/javase/specs/jls/se16/html/jls-17.html)  
