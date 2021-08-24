@@ -541,28 +541,63 @@ service.shutdown();
 ```
 
 6. 线程池
-```java
+`corePoolSize`指最小保活线程数
+`maximumPoolSize`指最大池大小
+`workQueue`是`BlockingQueue<Runnable>`，主要用来存放待运行的任务
+`workers`是所有`Worker`的集合`HashSet<Worker> workers = new HashSet<>();`
+`ctl`是主线程池`control state`的表示，是一个原子整形比那辆，包含了两个概念
 
-```
+- workerCount  
+表明现有的线程数
+- runState  
+表明运行状态，如运行，停止等等，一共有5种状态，分别是`RUNNING`, `SHUTDOWN`, `STOP`, `TIDYING`, `TERMINATED`这些。
+
 线程池工作原理
-1. 
-1. If fewer than corePoolSize threads are running, try to
-         * start a new thread with the given command as its first
-         * task.  The call to addWorker atomically checks runState and
-         * workerCount, and so prevents false alarms that would add
-         * threads when it shouldn't, by returning false.
-         *
-         * 2. If a task can be successfully queued, then we still need
-         * to double-check whether we should have added a thread
-         * (because existing ones died since last checking) or that
-         * the pool shut down since entry into this method. So we
-         * recheck state and if necessary roll back the enqueuing if
-         * stopped, or start a new thread if there are none.
-         *
-         * 3. If we cannot queue task, then we try to add a new
-         * thread.  If it fails, we know we are shut down or saturated
-         * and so reject the task.
+1. 如果小于`corePoolSize`大小，则启动新线程作为第一个任务；
+2. 否则，加入到任务队列中；
+3. 如果队列满不能加入到队列中，则试图创建新的线程；
+4. 如果失败，则拒绝等操作；
 
+`Worker`实现了`AQS`和`Runnbale`，`AQS`方面主要是提供了一种不可重入的锁机制，以免在对线程池进行操作时，出现多个同时操作问题，`Runnable`则提供了一种线程的实现。
+
+`addWorker()`提供了任务集合启动新的工作线程的基本方法，核心逻辑是：
+1. 检查当前线程池状态，如果是`SHUTDOWN`或者`STOP`状态，则直接返回；
+2. 否则，判断当前`workCount`是否超过最大池大小或`coreSize`，如果是，则直接返回;
+3. 否则，增加`workCount`计数，并再次获取线程池状态，如果已经停止，则再次尝试；
+4. 否则，判断如果是`RUNNING`状态或`SHUTDOWN`状态且`firstTask==null`，向`worker`集合中添加线程，添加成功则调用`start()`启动该`worker`，作为单独的线程；
+5. 否则减少`workCount`；
+
+`runWorker()`提供了不断从`Queue`中获取任务，并执行。核心逻辑是：
+1. 从`Queue`中获取任务，如果任务不为`null`，则锁定`worker`对象;
+2. 执行`beforeExecute()`，做运行任务前的准备工作;
+3. 执行任务`run()`方法；
+4. 执行`afterExecute()`方法；
+5. 处理`worker`退出相关逻辑；
+
+`processWorkerExit()`提供了从`worker`中退出的逻辑，核心是：
+1. 获取全局锁对象，从`worker`集合中移除当前`worker`；
+2. 调用`tryTerminate()`停止`worker`；
+3. 判断线程池状态是否处于运行状态，如果是，判断当前所拥有的`worker`是否小于`coreSize`；
+4. 如果是，则创建新的`worker`；否则，不做处理;
+
+上面简要介绍了`Worker`的工作过程，那么针对于任务的`Queue`，又有不同的策略，适用于不同的场景。  
+`SynchronousQueue`: 它将任务传递给线程而不保留线程。在这里，如果没有立即可用的线程来运行它，那么对任务进行排队的尝试将失败，因此将构造一个新的线程。此策略可在处理可能具有内部依赖关系的请求集时避免发生阻塞。直接切换通常需要无界的最大池大小，以避免拒绝新提交的任务。这反过来又允许当命令的平均到达速度快时，无限线程增长的可能性。
+
+`LinkedBlockingQueue`：无界队列。使用一个无界的队列（例如，一个没有预定义容量的链式阻塞队列）将导致新任务在队列中等待。因此，只能创建代码池大小的线程。（因此，最大池大小的值没有任何影响。）当每个任务都完全独立于其他任务时，这可能很合适，因此任务不能影响彼此的执行；例如，在网页服务器中。虽然这种风格的排队可以用于平滑瞬态请求突发，但它承认当命令继续到达速度比处理速度更快时，就存在无限工作队列增长的可能性。
+
+`ArrayBlockingQueue`：一个有界的队列（例如，一个仲裁阻塞队列）在使用有限的最大池大小时，有助于防止资源耗尽，但可能更难调整和控制。队列大小和最大池大小可以相互交换：使用大队列和小池可以最大限度地减少CPU使用、操作系统资源和上下文切换开销，但可能导致人为的低吞吐量。如果任务经常阻塞（例如，如果它们是I/O绑定的），则系统可能能够为更多的线程调度时间。使用小队列通常需要更大的池大小，这使cpu更繁忙，但可能会遇到不可接受的调度开销，这也会降低吞吐量。
+
+常见的线程池类型有：
+- `FixedThreadPool`
+使用`LinkedBlockingQueue`实现。
+
+- `CachedThreadPool`
+使用`SynchronousQueue`实现，默认60s退出；
+
+- `ScheduledThreadPool`
+使用`DelayedWorkQueue`实现
+
+- 自定义参数构造线程池
 
 7. `CountdownLatch`, `CyclicBarrier`, `Semaphor`
 
