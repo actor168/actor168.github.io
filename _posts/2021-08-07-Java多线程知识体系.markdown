@@ -601,6 +601,100 @@ service.shutdown();
 
 7. `CountdownLatch`, `CyclicBarrier`, `Semaphor`
 
+- `CountDownLatch`  
+提供了一种同步辅助手段，允许等待其他线程或操作结束后再执行的方法。  
+包括方法`CountDownLatch(N)`，`await()`和`countDown()`  
+参数`N`提供了要执行等待的计数，直到为`0`才会释放阻塞。  
+内部根据`AQS`实现对状态的控制，通过`CAS`实现数据计数的操作。
+
+特点：一次性控制器，不可以再次设置，如果要再次设置，需采用`CyclicBarrier`
+
+```java
+import java.util.concurrent.CountDownLatch;
+
+public class CountLatch {
+    public static void main(String[] args) throws InterruptedException {
+        CountDownLatch startSignal = new CountDownLatch(1);
+        CountDownLatch stopSingal = new CountDownLatch(10);
+
+        for (int i = 0; i < 10; i++) {
+            Thread t = new Thread() {
+                public void run() {
+                    try {
+                        startSignal.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    System.out.println("thread started ... " + Thread.currentThread().getName());
+                    stopSingal.countDown();
+                };
+            };
+            t.start();
+        }
+
+        System.out.println("main started....");
+        startSignal.countDown();
+        System.out.println("main running....");
+        stopSingal.await();
+    }
+}
+```
+
+- `CyclicBarrier`
+
+```java
+public class CyclBarrier {
+    CyclicBarrier cyclicBarrier = null;
+
+    public static void main(String[] args) throws InterruptedException, BrokenBarrierException {
+        new CyclBarrier().work();
+    }
+
+    public void work() throws InterruptedException, BrokenBarrierException {
+        int N = 10;
+        Runnable action =  new Runnable(){
+            @Override
+            public void run() {
+                System.out.println("merge ... ");
+            }
+        };
+        cyclicBarrier = new CyclicBarrier(N, action);
+
+        List<Thread> threads = new ArrayList<Thread>(N);
+        for (int i = 0; i < N; i++) {
+            Thread thread = new Thread(new Worker(i));
+            threads.add(thread);
+            thread.start();
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+    }
+
+    class Worker implements Runnable {
+        int row;
+    
+        public Worker(int r) {
+            this.row = r;
+        }
+        @Override
+        public void run() {
+            System.out.println("executing ... " + row);
+            try {
+                cyclicBarrier.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (BrokenBarrierException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+- `Semaphore`
+
+
 8. 生产者和消费者模型 
 
 9. 并发容器`ConcurrentHashMap`
